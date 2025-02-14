@@ -1,4 +1,4 @@
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import User
 
@@ -7,13 +7,15 @@ class UserRepository:
         self.session = session
 
     async def create_user(self,
-                         telegram_id: int,
-                         username: str | None,
-                         location: str,
-                         language: str,
-                         gender: str,
-                         age: int,
-                         subjects: list[str]) -> User:
+                          telegram_id: int,
+                          username: str | None,
+                          location: str,
+                          language: str,
+                          gender: str,
+                          age: int,
+                          subjects: list[str]) -> User:
+        normalized_subjects = [subject.strip().lower() for subject in subjects]
+
         user = User(
             telegram_id=telegram_id,
             username=username,
@@ -21,7 +23,7 @@ class UserRepository:
             language=language,
             gender=gender,
             age=age,
-            subjects=subjects
+            subjects=normalized_subjects
         )
         self.session.add(user)
         await self.session.commit()
@@ -49,11 +51,12 @@ class UserRepository:
         return result.scalars().all()
 
     async def find_matches_by_subjects(self, telegram_id: int, subjects: list[str]) -> list[User]:
-        # Находим пользователей, у которых есть хотя бы один общий предмет
+        normalized_subjects = [subject.lower() for subject in subjects]
+
         query = select(User).where(
             and_(
                 User.telegram_id != telegram_id,
-                User.subjects.op('&&')(subjects)
+                User.subjects.op('&&')(normalized_subjects)
             )
         )
         result = await self.session.execute(query)
