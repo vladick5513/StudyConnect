@@ -9,7 +9,6 @@ from app.database import async_session_factory
 
 router = Router()
 
-
 class RegistrationStates(StatesGroup):
     waiting_for_location = State()
     waiting_for_language = State()
@@ -17,21 +16,36 @@ class RegistrationStates(StatesGroup):
     waiting_for_age = State()
     waiting_for_subjects = State()
 
-
 @router.message(Command("start"))
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message):
+    welcome_text = """
+👋 Привет! Я бот для поиска партнёров по обучению.
+
+Что я умею:
+• Помогаю найти людей для совместного изучения предметов
+• Подбираю партнёров по возрасту, стране проживания или интересующим предметам
+• Помогаю установить контакт с потенциальными учебными партнёрами
+
+Доступные команды:
+/register - Зарегистрироваться
+/search - Искать партнёров по обучению
+
+Для начала работы пройдите регистрацию с помощью команды /register 📝
+"""
+    await message.answer(welcome_text)
+
+@router.message(Command("register"))
+async def cmd_register(message: Message, state: FSMContext):
     async with async_session_factory() as session:
         repo = UserRepository(session)
         user = await repo.get_user_by_telegram_id(message.from_user.id)
 
         if user:
-            await message.answer(
-                "Вы уже зарегистрированы! Используйте /search для поиска партнеров или /register для повторной регистрации."
-            )
+            await message.answer("Вы уже зарегистрированы! Вы можете искать партнёров с помощью /search.")
             return
 
-    await message.answer("Добро пожаловать! Давайте начнем регистрацию. В какой стране вы живете?")
-    await state.set_state(RegistrationStates.waiting_for_location)
+        await message.answer("Отлично! Давайте создадим ваш профиль. В какой стране вы живете?")
+        await state.set_state(RegistrationStates.waiting_for_location)
 
 
 @router.message(StateFilter(RegistrationStates.waiting_for_location))
@@ -61,19 +75,14 @@ async def process_gender(callback: CallbackQuery, state: FSMContext):
     await state.set_state(RegistrationStates.waiting_for_age)
     await callback.answer()
 
-
 @router.message(StateFilter(RegistrationStates.waiting_for_age))
 async def process_age(message: Message, state: FSMContext):
     if not message.text.isdigit() or int(message.text) < 1 or int(message.text) > 100:
         await message.answer("Пожалуйста, введите корректный возраст (число от 1 до 100):")
         return
-
     await state.update_data(age=int(message.text))
-    await message.answer(
-        "Какие предметы вы хотите изучать? Перечислите их через запятую"
-    )
+    await message.answer("🎓 Какие предметы вы хотите изучать? Перечислите их через запятую.")
     await state.set_state(RegistrationStates.waiting_for_subjects)
-
 
 @router.message(StateFilter(RegistrationStates.waiting_for_subjects))
 async def process_subjects(message: Message, state: FSMContext):
@@ -92,7 +101,5 @@ async def process_subjects(message: Message, state: FSMContext):
             subjects=subjects
         )
 
-    await message.answer(
-        "Регистрация завершена! Используйте /search для поиска партнеров по обучению."
-    )
+    await message.answer("✅ Профиль успешно создан! Теперь вы можете искать партнёров с помощью команды /search.")
     await state.clear()
