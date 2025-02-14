@@ -11,7 +11,7 @@ dp = Dispatcher()
 
 # Функция для запуска бота
 async def main():
-    dp.include_routers(auth_router, match_router) #добавить роутеры
+    dp.include_routers(auth_router, match_router)
     print("Бот запущен!")
     await dp.start_polling(bot)
 
