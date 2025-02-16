@@ -50,14 +50,18 @@ async def cmd_register(message: Message, state: FSMContext):
 
 @router.message(StateFilter(RegistrationStates.waiting_for_location))
 async def process_location(message: Message, state: FSMContext):
-    await state.update_data(location=message.text)
+    # Приводим название страны к формату, где первая буква заглавная, а остальные строчные
+    location = message.text.strip().capitalize()
+    await state.update_data(location=location)
     await message.answer("На каком языке вы предпочитаете общаться?")
     await state.set_state(RegistrationStates.waiting_for_language)
 
 
 @router.message(StateFilter(RegistrationStates.waiting_for_language))
 async def process_language(message: Message, state: FSMContext):
-    await state.update_data(language=message.text)
+    # Приводим язык к нижнему регистру
+    language = message.text.strip().lower()
+    await state.update_data(language=language)
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="Мужской", callback_data="gender_male"))
