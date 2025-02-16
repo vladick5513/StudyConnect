@@ -34,25 +34,25 @@ class UserRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def find_matches_by_location(self, telegram_id: int, location: str) -> list[User]:
+    async def find_matches_by_age_param(self, telegram_id: int, target_age: int, range: int = 3) -> list[User]:
         query = select(User).where(
-            (User.location == location) &
+            (User.age.between(target_age - range, target_age + range)) &
             (User.telegram_id != telegram_id)
         )
         result = await self.session.execute(query)
         return result.scalars().all()
 
-    async def find_matches_by_age(self, telegram_id: int, age: int, range: int = 3) -> list[User]:
+    async def find_matches_by_location_param(self, telegram_id: int, location: str) -> list[User]:
+        normalized_location = location.strip().lower()
         query = select(User).where(
-            (User.age.between(age - range, age + range)) &
+            (User.location.ilike(f"%{normalized_location}%")) &
             (User.telegram_id != telegram_id)
         )
         result = await self.session.execute(query)
         return result.scalars().all()
 
-    async def find_matches_by_subjects(self, telegram_id: int, subjects: list[str]) -> list[User]:
-        normalized_subjects = [subject.lower() for subject in subjects]
-
+    async def find_matches_by_subjects_param(self, telegram_id: int, subjects: list[str]) -> list[User]:
+        normalized_subjects = [subject.strip().lower() for subject in subjects]
         query = select(User).where(
             and_(
                 User.telegram_id != telegram_id,
