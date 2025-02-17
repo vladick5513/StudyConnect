@@ -6,8 +6,10 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from app.bot.crud import UserRepository
 from app.database import async_session_factory
+from app.utils.validation import VALID_COUNTRIES, VALID_LANGUAGES, VALID_SUBJECTS, MIN_AGE, MAX_AGE
 
 router = Router()
+
 
 class RegistrationStates(StatesGroup):
     waiting_for_location = State()
@@ -15,6 +17,7 @@ class RegistrationStates(StatesGroup):
     waiting_for_gender = State()
     waiting_for_age = State()
     waiting_for_subjects = State()
+
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
@@ -34,6 +37,7 @@ async def cmd_start(message: Message):
 """
     await message.answer(welcome_text)
 
+
 @router.message(Command("register"))
 async def cmd_register(message: Message, state: FSMContext):
     async with async_session_factory() as session:
@@ -50,8 +54,11 @@ async def cmd_register(message: Message, state: FSMContext):
 
 @router.message(StateFilter(RegistrationStates.waiting_for_location))
 async def process_location(message: Message, state: FSMContext):
-    # Приводим название страны к формату, где первая буква заглавная, а остальные строчные
     location = message.text.strip().capitalize()
+    if location not in VALID_COUNTRIES:
+        await message.answer("Пожалуйста, введите корректное название страны.")
+        return
+
     await state.update_data(location=location)
     await message.answer("На каком языке вы предпочитаете общаться?")
     await state.set_state(RegistrationStates.waiting_for_language)
@@ -59,8 +66,11 @@ async def process_location(message: Message, state: FSMContext):
 
 @router.message(StateFilter(RegistrationStates.waiting_for_language))
 async def process_language(message: Message, state: FSMContext):
-    # Приводим язык к нижнему регистру
     language = message.text.strip().lower()
+    if language not in VALID_LANGUAGES:
+        await message.answer("Пожалуйста, введите корректное название страны.")
+        return
+
     await state.update_data(language=language)
 
     builder = InlineKeyboardBuilder()
@@ -79,19 +89,33 @@ async def process_gender(callback: CallbackQuery, state: FSMContext):
     await state.set_state(RegistrationStates.waiting_for_age)
     await callback.answer()
 
+
 @router.message(StateFilter(RegistrationStates.waiting_for_age))
 async def process_age(message: Message, state: FSMContext):
-    if not message.text.isdigit() or int(message.text) < 1 or int(message.text) > 100:
-        await message.answer("Пожалуйста, введите корректный возраст (число от 1 до 100):")
+    if not message.text.isdigit():
+        await message.answer("Пожалуйста, введите число.")
         return
-    await state.update_data(age=int(message.text))
+
+    age = int(message.text)
+    if age < MIN_AGE or age > MAX_AGE:
+        await message.answer(f"Пожалуйста, введите корректный возраст (от {MIN_AGE} до {MAX_AGE}).")
+        return
+
+    await state.update_data(age=age)
     await message.answer("🎓 Какие предметы вы хотите изучать? Перечислите их через запятую.")
     await state.set_state(RegistrationStates.waiting_for_subjects)
+
 
 @router.message(StateFilter(RegistrationStates.waiting_for_subjects))
 async def process_subjects(message: Message, state: FSMContext):
     user_data = await state.get_data()
-    subjects = [s.strip() for s in message.text.split(",")]
+    subjects = [s.strip().lower() for s in message.text.split(",")]
+
+    invalid_subjects = [s for s in subjects if s not in VALID_SUBJECTS]
+    if invalid_subjects:
+        await message.answer(
+            "Некоторые предметы введены некорректно. Пожалуйста, введите корректные предметы, например (математика, биология)")
+        return
 
     async with async_session_factory() as session:
         repo = UserRepository(session)
