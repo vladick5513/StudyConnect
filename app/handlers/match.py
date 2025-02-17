@@ -77,8 +77,8 @@ async def process_age_search(message: Message, state: FSMContext):
         return
 
     age = int(message.text)
-    if age < 1 or age > 100:
-        await message.answer("Пожалуйста, введите реалистичный возраст (от 1 до 100):")
+    if age < 13 or age > 80:
+        await message.answer("Пожалуйста, введите реалистичный возраст (от 13 до 80):")
         return
 
     await perform_search(message, "age", age)
