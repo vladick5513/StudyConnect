@@ -61,3 +61,15 @@ class UserRepository:
         )
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def update_user_field(self, telegram_id: int, field: str, value: any) -> None:
+        if field == "subjects":
+            value = [subject.strip().lower() for subject in value]
+
+        query = (
+            update(User)
+            .where(User.telegram_id == telegram_id)
+            .values(**{field: value})
+        )
+        await self.session.execute(query)
+        await self.session.commit()
